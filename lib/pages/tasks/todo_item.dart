@@ -43,7 +43,7 @@ class ToDoItem extends StatelessWidget {
           color: tdBlue,
         ),
         title: Text(
-          todo.content!,
+          todo.content,
           style: TextStyle(
             fontSize: 16,
             color: tdBlack,
@@ -65,7 +65,7 @@ class ToDoItem extends StatelessWidget {
             icon: Icon(Icons.delete),
             onPressed: () {
               // print('Clicked on delete icon');
-              onDeleteItem(todo.id);
+              onDeleteItem(todo.todoId);
             },
           ),
         ),

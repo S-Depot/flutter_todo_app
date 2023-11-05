@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_todo_app/controllers/todo_controller.dart';
 import 'package:flutter_todo_app/pages/tasks/todo_item.dart';
+import 'package:parse_server_sdk_flutter/parse_server_sdk_flutter.dart';
 
 import '../pojo/todo.dart';
 
@@ -22,20 +23,41 @@ class _HomeState extends State<HomeScreen> {
 
   static const Color tdBGColor = Color(0xFFEEEFF5);
 
-  final TodosList = TodoController().getTodos();
-  List<Todo> _foundTodo = [];
+  List<Todo> TodosList = [];
+  // List<Todo> _foundTodo = TodoController().getTodos1();
   final _TodoController = TextEditingController();
 
   @override
   void initState() {
-    _foundTodo = TodosList;
     super.initState();
+    getTodos();
+  }
+
+  Future<void> getTodos() async {
+    QueryBuilder<ParseObject> queryPerson =
+        QueryBuilder<ParseObject>(ParseObject('Todo'));
+    try {
+      final ParseResponse apiResponse = await queryPerson.query();
+      if (apiResponse.results != null) {
+        setState(() {
+          TodosList = apiResponse.results!.map<Todo>((result) {
+            return Todo.fromParseObject(result as ParseObject);
+          }).toList();
+        });
+      }
+    } catch (E) {
+      print("error in mapping responses?");
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     var size = MediaQuery.of(context).size;
-    return _foundTodo.isEmpty
+    TodosList.forEach((todo) {
+      print(
+          'ID: ${todo.todoId}, Title: ${todo.content}, Completed: ${todo.completed}');
+    });
+    return TodosList.isEmpty
         ? Scaffold(
             backgroundColor: tdBGColor,
             appBar: _buildAppBar(),
@@ -51,7 +73,7 @@ class _HomeState extends State<HomeScreen> {
                 const SizedBox(
                   height: 30,
                 ),
-                addTasks(),
+                addTasksWidget(),
               ],
             ),
           )
@@ -72,7 +94,7 @@ class _HomeState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                addTasks(),
+                addTasksWidget(),
               ],
             ),
           );
@@ -81,6 +103,7 @@ class _HomeState extends State<HomeScreen> {
   Widget _rowUpdate() {
     return Expanded(
         child: ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         Container(
           margin: EdgeInsets.only(
@@ -95,10 +118,10 @@ class _HomeState extends State<HomeScreen> {
             ),
           ),
         ),
-        for (Todo Todoo in _foundTodo.reversed)
-          if (!Todoo.completed)
+        for (Todo todoNotComp in TodosList.reversed)
+          if (!todoNotComp.completed)
             ToDoItem(
-              todo: Todoo,
+              todo: todoNotComp,
               onToDoChanged: _handleTodoChange,
               onDeleteItem: _deleteTodoItem,
             ),
@@ -115,56 +138,15 @@ class _HomeState extends State<HomeScreen> {
             ),
           ),
         ),
-        for (Todo Todoo1 in _foundTodo.reversed)
-          if (Todoo1.completed)
+        for (Todo todoComp in TodosList.reversed)
+          if (todoComp.completed)
             ToDoItem(
-              todo: Todoo1,
+              todo: todoComp,
               onToDoChanged: _handleTodoChange,
               onDeleteItem: _deleteTodoItem,
             ),
       ],
     ));
-  }
-
-  void _handleTodoChange(Todo Todo) {
-    setState(() {
-      Todo.completed = !Todo.completed;
-    });
-  }
-
-  void _deleteTodoItem(String id) {
-    setState(() {
-      TodosList.removeWhere((item) => item.id == id);
-    });
-  }
-
-  void _addTodoItem(String Todoo) {
-    setState(() {
-      // TodosList.add(Todo(
-      //   id: DateTime.now().millisecondsSinceEpoch.toString(),
-      //   content: Todoo,
-      // ));
-      TodoController().saveTodos(Todo(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: Todoo,
-      ));
-    });
-    _TodoController.clear();
-  }
-
-  void _runFilter(String enteredKeyword) {
-    List<Todo> results = [];
-    if (enteredKeyword.isEmpty) {
-      results = TodosList;
-    } else {
-      results = TodosList.where((item) => item.content!
-          .toLowerCase()
-          .contains(enteredKeyword.toLowerCase())).toList();
-    }
-
-    setState(() {
-      _foundTodo = results;
-    });
   }
 
   Widget searchBox() {
@@ -202,7 +184,7 @@ class _HomeState extends State<HomeScreen> {
     );
   }
 
-  addTasks() {
+  addTasksWidget() {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Row(children: [
@@ -250,6 +232,7 @@ class _HomeState extends State<HomeScreen> {
             ),
             onPressed: () {
               _addTodoItem(_TodoController.text);
+              getTodos();
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: tdBlue,
@@ -260,5 +243,49 @@ class _HomeState extends State<HomeScreen> {
         ),
       ]),
     );
+  }
+
+  void _handleTodoChange(Todo Todo) {
+    setState(() {
+      Todo.completed = !Todo.completed;
+    });
+  }
+
+  void _deleteTodoItem(String id) {
+    setState(() {
+      TodoController().deleteTodo(id);
+      TodosList.removeWhere((item) => item.todoId == id);
+    });
+  }
+
+  void _addTodoItem(String Todoo) {
+    setState(() {
+      // TodosList.add(Todo(
+      //   id: DateTime.now().millisecondsSinceEpoch.toString(),
+      //   content: Todoo,
+      // ));
+      Todo tempTodo = Todo(
+        todoId: DateTime.now().millisecondsSinceEpoch.toString(),
+        content: Todoo,
+      );
+      TodoController().saveTodos(tempTodo);
+    });
+
+    _TodoController.clear();
+  }
+
+  void _runFilter(String enteredKeyword) {
+    List<Todo> results = [];
+    if (enteredKeyword.isEmpty) {
+      results = [];
+    } else {
+      results = TodosList.where((item) => item.content!
+          .toLowerCase()
+          .contains(enteredKeyword.toLowerCase())).toList();
+    }
+
+    setState(() {
+      TodosList = results;
+    });
   }
 }
